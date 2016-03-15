@@ -75,6 +75,7 @@ handlers = [
     (r"/monitor/succeeded-tasks", monitor.SucceededTaskMonitor),
     (r"/monitor/failed-tasks", monitor.FailedTaskMonitor),
     (r"/monitor/completion-time", monitor.TimeToCompletionMonitor),
+    (r"/monitor/task-breakdown", monitor.TaskBreakdownMonitor),
     (r"/monitor/broker", monitor.BrokerMonitor),
     # Static
     (r"/static/(.*)", StaticFileHandler,

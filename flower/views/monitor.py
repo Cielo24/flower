@@ -11,6 +11,10 @@ from ..utils.broker import Broker
 from ..api.control import ControlHandler
 
 
+def avg(total, count):
+    return (total / count) if count > 0 else 0.0
+
+
 class Monitor(BaseHandler):
     @web.authenticated
     def get(self):
@@ -65,6 +69,54 @@ class TimeToCompletionMonitor(BaseHandler):
             "Execution time": avg_execution_time,
         }
         self.write(result)
+
+
+class TaskBreakdownMonitor(BaseHandler):
+    @web.authenticated
+    def get(self):
+        timestamp = self.get_argument('lastquery', type=float)
+        state = self.application.events.state
+
+        task_results = {}
+        total_average_queue_time = 0
+        total_average_execution_time = 0
+        total_num_tasks = 0
+
+        for _, task in state.itertasks():
+
+            if timestamp < task.timestamp and task.state == states.SUCCESS:
+                # eta can make "time in queue" look really scary.
+                if task.eta is not None:
+                    continue
+
+                if task.sent is None or task.started is None or task.succeeded is None:
+                    continue
+
+                queue_time = task.started - task.sent
+                execution_time = task.succeeded - task.started
+
+                entry = task_results.get(task.name, {'queue_time': 0.0, 'execute_time': 0.0, 'num_tasks': 0.0})
+                entry['queue_time'] += queue_time
+                entry['execute_time'] += execution_time
+                entry['num_tasks'] += 1
+                task_results[task.name] = entry
+
+                total_average_queue_time += queue_time
+                total_average_execution_time += execution_time
+                total_num_tasks += 1
+
+        results = {
+            'Total average time in queue': avg(total_average_queue_time, total_num_tasks),
+            'Total average execution time': avg(total_average_execution_time, total_num_tasks)
+        }
+
+        for name, entry in task_results.iteritems():
+            queue_time_title = '{} average time in queue'.format(name)
+            execution_time_title = '{} average execution time'.format(name)
+            results[queue_time_title] = avg(entry['queue_time'], entry['num_tasks'])
+            results[execution_time_title] = avg(entry['execute_time'], entry['num_tasks'])
+
+        self.write(results)
 
 
 class FailedTaskMonitor(BaseHandler):
