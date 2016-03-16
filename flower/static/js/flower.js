@@ -409,11 +409,12 @@ var flower = (function () {
         $('#task-filter-form').submit();
     }
 
-    function create_graph(data, id, width, height, metric) {
+    function create_graph(data, id, width, height, metric, type) {
         id = id || '';
         width = width || 500;
         height = height || 300;
         metric = metric || '';
+        type = type || 'stack';
 
         var name, seriesData = [],
             palette, graph, ticksTreatment, timeUnit, xAxis, yAxis, hoverDetail,
@@ -434,7 +435,7 @@ var flower = (function () {
             element: document.getElementById("chart" + id),
             width: width,
             height: height,
-            renderer: 'stack',
+            renderer: type,
             series: new Rickshaw.Series(seriesData, palette),
             maxDataPoints: 10000,
             padding: {
@@ -595,7 +596,8 @@ var flower = (function () {
                 succeeded_graph = null,
                 failed_graph = null,
                 time_graph = null,
-                broker_graph = null;
+                broker_graph = null,
+                breakdown_graph = null;
 
             $.ajax({
                 type: 'GET',
@@ -671,6 +673,28 @@ var flower = (function () {
                     setInterval(function () {
                         update_graph(broker_graph,
                             '/monitor/broker');
+                    }, updateinterval);
+
+                },
+            });
+
+
+            $.ajax({
+                type: 'GET',
+                url: url_prefix() + '/monitor/task-breakdown',
+                data: {
+                    lastquery: current_unix_time()
+                },
+                success: function (data) {
+                    breakdown_graph = create_graph(data, '-breakdown', null, null, 's', 'line');
+                    breakdown_graph.update();
+
+                    breakdown_graph.series.setTimeInterval(updateinterval);
+                    setInterval(function () {
+                        update_graph(breakdown_graph,
+                            '/monitor/task-breakdown',
+                            tts);
+                        tts = current_unix_time();
                     }, updateinterval);
 
                 },
